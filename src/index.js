@@ -1,6 +1,6 @@
 const express = require('express');
 const https = require('https');
-const fs = request('fs');
+const fs = require('fs');
 
 const app = express();
 
