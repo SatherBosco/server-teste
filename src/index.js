@@ -1,6 +1,4 @@
 const express = require('express');
-const https = require('https');
-const fs = require('fs');
 
 const app = express();
 
@@ -9,7 +7,4 @@ app.use(express.urlencoded({ extended: false }));
 
 require('./app/controllers/index')(app);
 
-https.createServer({
-    key: fs.readFileSync("key.pem"),
-    cert: fs.readFileSync("cert.pem"),
-}, app).listen(3333);
+app.listen(3333);
