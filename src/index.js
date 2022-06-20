@@ -3,9 +3,6 @@ const cors = require('cors');
 
 const app = express();
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
-
 // Add Access Control Allow Origin headers
 app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', '*');
@@ -14,6 +11,9 @@ app.use((req, res, next) => {
     app.use(cors());
     next();
 });
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
 
 // app.use((req,res,next)=>{
 //     res.header('Access-Control-Allow-Headers, *, Access-Control-Allow-Origin', 'Origin, X-Requested-with, Content_Type,Accept,Authorization','http://localhost:4200');
