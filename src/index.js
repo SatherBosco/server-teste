@@ -21,4 +21,4 @@ app.get('/', (req, res) => {
 
 require('./app/controllers/index')(app);
 
-app.listen(3333);
+app.listen(3000);
