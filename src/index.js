@@ -15,6 +15,10 @@ app.use((req, res, next) => {
     next();
 });
 
+app.get('/', (req, res) => {
+    return res.send({ msg: 'OK' });
+});
+
 require('./app/controllers/index')(app);
 
 app.listen(3333);
