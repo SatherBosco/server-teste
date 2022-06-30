@@ -18,7 +18,7 @@ router.get('/', async(req, res) => {
 
         for (let bed of beds) {
             if (bed.expirationbedtime <= dateNow) {
-                await Bed.findByIdAndRemove(bed.bedid);
+                await Bed.findByIdAndRemove(bed._id);
             } else {
                 bedsFromDB.push(bed);
             }
@@ -26,7 +26,7 @@ router.get('/', async(req, res) => {
 
         return res.send({ msg: 'OK', bedsFromDB });
     } catch (err) {
-        return res.status(400).send({ msg: 'Error find bed' });
+        return res.status(400).send({ msg: 'Erro do servidor ao localizar as camas disponíveis.' });
     }
 });
 

@@ -2,6 +2,8 @@ require("dotenv").config();
 const express = require('express');
 const authMiddleware = require('../middlewares/auth');
 
+const gameSettings = require('../../config/gameSettings.json');
+
 const Account = require('../models/Account');
 const Bed = require('../models/Bed');
 
@@ -25,7 +27,7 @@ router.get('/', async(req, res) => {
 
         return res.send({ msg: 'OK', account });
     } catch (err) {
-        return res.status(400).send({ msg: 'Error account create' });
+        return res.status(400).send({ msg: 'Erro do servidor ao criar a conta.' });
     }
 });
 
@@ -35,7 +37,7 @@ router.put('/comida', async(req, res) => {
 
         const comidaPrice = 100;
         if (bone < comidaPrice) {
-            return res.send({ msg: 'Sem Bone para comida' });
+            return res.send({ msg: 'Sem Bone para comprar comida.' });
         }
 
         const account = await Account.findOneAndUpdate({ user: req.userId }, { '$inc': { 'bone': -comidaPrice, 'comida': 100 } }, { new: true });
@@ -43,7 +45,7 @@ router.put('/comida', async(req, res) => {
 
         return res.send({ msg: 'OK', account });
     } catch (err) {
-        return res.status(400).send({ msg: 'Error ao comprar comida' });
+        return res.status(400).send({ msg: 'Erro do servidor ao comprar comida.' });
     }
 });
 
@@ -53,7 +55,7 @@ router.put('/vacina', async(req, res) => {
 
         const vacinaPrice = 100;
         if (bone < vacinaPrice) {
-            return res.send({ msg: 'Sem Bone para vacina' });
+            return res.send({ msg: 'Sem Bone para comprar vacina.' });
         }
 
         const account = await Account.findOneAndUpdate({ user: req.userId }, { '$inc': { 'bone': -vacinaPrice, 'vacina': 100 } }, { new: true });
@@ -61,7 +63,7 @@ router.put('/vacina', async(req, res) => {
 
         return res.send({ msg: 'OK', account });
     } catch (err) {
-        return res.status(400).send({ msg: 'Error ao comprar vacina' });
+        return res.status(400).send({ msg: 'Erro do servidor ao comprar vacina.' });
     }
 });
 
@@ -74,13 +76,13 @@ router.put('/bed/:bedType', async(req, res) => {
         const dateNow = new Date();
 
         const bedTypeString = bedsTypes[req.params.bedType];
-        const expirationTime = new Date(dateNow.getTime() + bedsTimes[req.params.bedType] * 3600000);;
+        const expirationTime = new Date(dateNow.getTime() + bedsTimes[req.params.bedType] * gameSettings.timeMult);
         const bedPrice = bedsPrice[req.params.bedType];
 
         const { bone } = await Account.findOne({ user: req.userId });
 
         if (bone < bedPrice) {
-            return res.send({ msg: 'Sem Bone para bed' });
+            return res.send({ msg: 'Sem Bone para comprar cama.' });
         }
 
         var obj = {
@@ -96,7 +98,7 @@ router.put('/bed/:bedType', async(req, res) => {
 
         return res.send({ msg: 'OK', bed, account });
     } catch (err) {
-        return res.status(400).send({ msg: 'Error ao comprar cama' });
+        return res.status(400).send({ msg: 'Erro do servidor ao comprar cama.' });
     }
 });
 

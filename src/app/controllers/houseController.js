@@ -1,9 +1,13 @@
 require("dotenv").config();
+
+const Web3 = require('web3');
+const SmartContractNFT = require('../contracts/DDCHouse.json');
+
 const express = require('express');
 const authMiddleware = require('../middlewares/auth');
 
 const House = require('../models/House');
-const Bed = require('../models/Bed');
+const User = require('../models/User');
 
 const router = express.Router();
 
@@ -11,82 +15,53 @@ router.use(authMiddleware);
 
 router.get('/', async(req, res) => {
     try {
-        var house = await House.findOne({ user: req.userId });
+        const NODE_URL = 'https://speedy-nodes-nyc.moralis.io/b22571774cee89066f4cf22d/bsc/mainnet';
+        const provider = new Web3.providers.HttpProvider(NODE_URL);
+        const web3 = new Web3(provider);
 
-        if (!house) {
-            var obj = {
-                'user': req.userId,
-                'bone': 0,
-                'comida': 0,
-                'vacina': 0
-            };
-            house = await House.create(obj);
+        const SmartContractNFTObj = new web3.eth.Contract(
+            SmartContractNFT,
+            '0x21A8B00b925817A6EcCf67921D6A1912AAb0539a'
+        );
+
+        const { wallet } = await User.findOne({ _id: req.userId });
+
+        var housesFromBSC;
+        await SmartContractNFTObj.methods.getOwnerHousesId(wallet).call(function(error, result) {
+            housesFromBSC = result;
+        });
+
+        var housesFromDB = [];
+
+
+        if (housesFromBSC.length !== 0) {
+            for (let house of housesFromBSC) {
+                const houseInDB = await House.findOne({ houseid: house });
+
+                if (houseInDB) {
+                    if (houseInDB.user != req.userId) {
+                        const changeHouse = await House.findOneAndUpdate({ houseid: house }, { '$set': { 'user': req.userId } }, { new: true });
+                        await changeHouse.save();
+
+                        housesFromDB.push(changeHouse);
+                    } else {
+                        housesFromDB.push(houseInDB);
+                    }
+                } else {
+                    var obj = {
+                        'houseid': house,
+                        'user': req.userId
+                    };
+                    const newHouse = await House.create(obj);
+
+                    housesFromDB.push(newHouse);
+                }
+            }
         }
 
-        return res.send({ msg: 'OK', house });
+        return res.send({ msg: 'OK', housesFromDB });
     } catch (err) {
-        return res.status(400).send({ msg: 'Error house create' });
-    }
-});
-
-router.put('/comida', async(req, res) => {
-    const { bone } = await House.findOne({ user: req.userId });
-
-    const comidaPrice = 100;
-    if (bone < comidaPrice) {
-        return res.send({ msg: 'Sem Bone para comida' });
-    }
-
-    const house = await House.findOneAndUpdate({ user: req.userId }, { '$inc': { 'bone': -comidaPrice, 'comida': 100 } }, { new: true });
-    await house.save();
-
-    return res.send({ msg: 'OK', house });
-});
-
-router.put('/vacina', async(req, res) => {
-    const { bone } = await House.findOne({ user: req.userId });
-
-    const vacinaPrice = 100;
-    if (bone < vacinaPrice) {
-        return res.send({ msg: 'Sem Bone para vacina' });
-    }
-
-    const house = await House.findOneAndUpdate({ user: req.userId }, { '$inc': { 'bone': -vacinaPrice, 'vacina': 100 } }, { new: true });
-    await house.save();
-
-    return res.send({ msg: 'OK', house });
-});
-
-router.post('/bed/:bedType', async(req, res) => {
-    try {
-        const bedsTypes = ['simples', 'normal', 'luxo'];
-        const bedsTimes = [72, 156, 336];
-        const bedsPrice = [60, 120, 240];
-
-        const bedTypeString = bedsTypes[req.params.bedType];
-        const expirationTime = bedsTimes[req.params.bedType];
-        const bedPrice = bedsPrice[req.params.bedType];
-
-        const { bone } = await House.findOne({ user: req.userId });
-
-        if (bone < bedPrice) {
-            return res.send({ msg: 'Sem Bone para bed' });
-        }
-
-        var obj = {
-            'bedtype': bedTypeString,
-            'user': req.userId,
-            'expirationbedtime': expirationTime
-        };
-
-        const bed = await Bed.create(obj);
-
-        const house = await House.findOneAndUpdate({ user: req.userId }, { '$inc': { 'bone': -bedPrice } }, { new: true });
-        await house.save();
-
-        return res.send({ msg: 'OK', bed, house });
-    } catch (err) {
-        return res.status(400).send({ msg: 'Error house create' });
+        return res.status(400).send({ msg: 'Erro do servidor ao localizar as casas disponíveis.' });
     }
 });
 
