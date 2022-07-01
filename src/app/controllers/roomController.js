@@ -5,11 +5,9 @@ const authMiddleware = require('../middlewares/auth');
 
 const gameSettings = require('../../config/gameSettings.json');
 
-const User = require('../models/User');
 const Account = require('../models/Account');
 const Room = require('../models/Room');
 const ListWaitRoom = require('../models/ListWaitRoom');
-const Dog = require('../models/Dog');
 
 const router = express.Router();
 
@@ -23,7 +21,7 @@ router.get('/', async(req, res) => {
         if (rooms.length != 0) {
             for (let room of rooms) {
                 const nowDate = new Date();
-                const expirationTime = room.roomstarttime.getTime() + (24 * gameSettings.timeMult);
+                const expirationTime = room.roomstarttime.getTime() + (room.timemult * 24 * gameSettings.timeMult);
                 if (expirationTime < nowDate) {
                     await Room.findByIdAndRemove({ _id: room._id });
                 } else {
@@ -39,14 +37,14 @@ router.get('/', async(req, res) => {
 });
 
 router.post('/', async(req, res) => {
-    const { _id, roomavaliabletime } = req.body;
+    const { _id, roomavaliabletime, hours } = req.body;
 
     try {
         const rooms = await Room.find({ user: req.userId });
         if (rooms.length != 0) {
             for (let room of rooms) {
                 const nowDate = new Date();
-                const expirationTime = room.roomstarttime.getTime() + (24 * gameSettings.timeMult);
+                const expirationTime = room.roomstarttime.getTime() + (room.timemult * 24 * gameSettings.timeMult);
                 if (expirationTime < nowDate) {
                     await Room.findByIdAndRemove({ _id: room._id });
                 } else {
@@ -54,6 +52,12 @@ router.post('/', async(req, res) => {
                 }
             }
         }
+
+        const { bone } = await Account.findOne({ user: req.userId });
+
+        const roomPrice = Math.trunc(100 * Math.trunc(hours));
+        if (bone < roomPrice)
+            return res.send({ msg: 'Sem Bone para alugar o quarto.' });
 
         const roomForWaitList = await ListWaitRoom.findOne({ _id });
 
@@ -67,15 +71,18 @@ router.post('/', async(req, res) => {
 
         var obj = {
             'user': req.userId,
-            'roomstarttime': startTimeRight
+            'roomstarttime': startTimeRight,
+            'timemult': Math.trunc(hours)
         };
 
         const roomAvaliable = await Room.create(obj);
 
-        const newRoomavAliableTime = new Date(startTimeRight.getTime() + (24 * gameSettings.timeMult));
+        const account = await Account.findOneAndUpdate({ user: req.userId }, { '$inc': { 'bone': -roomPrice } }, { new: true });
+
+        const newRoomavAliableTime = new Date(startTimeRight.getTime() + (Math.trunc(hours) * 24 * gameSettings.timeMult));
         const changeListWaitRoom = await ListWaitRoom.findOneAndUpdate({ _id }, { '$set': { 'roomavaliabletime': newRoomavAliableTime } }, { new: true });
         await changeListWaitRoom.save();
-        return res.send({ msg: 'OK', roomAvaliable });
+        return res.send({ msg: 'OK', roomAvaliable, account });
     } catch (err) {
         return res.status(400).send({ msg: 'Erro do servidor ao alugar um quarto.' });
     }

@@ -35,10 +35,6 @@ const DogSchema = new mongoose.Schema({
         type: Date,
         required: true,
     },
-    doente: {
-        type: Boolean,
-        default: false,
-    },
     status: {
         type: String,
         required: true,
@@ -54,6 +50,10 @@ const DogSchema = new mongoose.Schema({
     bed: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Bed',
+    },
+    idade: {
+        type: Date,
+        default: Date.now,
     },
     createdAt: {
         type: Date,

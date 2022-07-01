@@ -10,6 +10,10 @@ const RoomSchema = new mongoose.Schema({
         type: Date,
         required: true,
     },
+    timemult: {
+        type: Number,
+        default: 1,
+    },
     usoroomtime: {
         type: Date,
         default: Date.now,

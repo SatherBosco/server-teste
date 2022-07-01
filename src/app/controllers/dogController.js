@@ -101,19 +101,19 @@ router.put('/fome/:dogId', async(req, res) => {
         const nowDate = new Date();
 
         if (fome < nowDate)
-            return res.send({ msg: 'O dog morreu de fome' });
+            return res.send({ msg: 'O dog morreu de fome.' });
 
         const fomeAtual = Math.floor(Math.abs(fome.getTime() - nowDate.getTime()) / gameSettings.timeMult);
 
         if (fomeAtual >= 20)
-            return res.send({ msg: 'Dog sem fome' });
+            return res.send({ msg: 'Dog sem fome.' });
 
         const { comida } = await Account.findOne({ user: req.userId });
 
         const alimentarEm = 4 - Math.floor(fomeAtual / 5);
 
         if (comida < alimentarEm)
-            return res.status(400).send({ msg: 'Without food' });
+            return res.status(400).send({ msg: 'Sem comida.' });
 
         const newFome = new Date(fome.getTime() + alimentarEm * 5 * gameSettings.timeMult);
 
@@ -125,7 +125,7 @@ router.put('/fome/:dogId', async(req, res) => {
 
         return res.send({ msg: 'OK', account, dog });
     } catch (err) {
-        return res.status(400).send({ msg: 'Error food' });
+        return res.status(400).send({ msg: 'Erro no servidor ao alimentar o dog.' });
     }
 });
 
@@ -135,12 +135,12 @@ router.put('/sede/:dogId', async(req, res) => {
         const nowDate = new Date();
 
         if (sede < nowDate)
-            return res.send({ msg: 'O dog morreu de sede' });
+            return res.send({ msg: 'O dog morreu de sede.' });
 
         const sedeAtual = Math.floor(Math.abs(sede.getTime() - nowDate.getTime()) / gameSettings.timeMult);
 
         if (sedeAtual >= 20)
-            return res.send({ msg: 'Dog sem sede' });
+            return res.send({ msg: 'Dog sem sede.' });
 
         const hidratarEm = 4 - Math.floor(sedeAtual / 5);
 
@@ -151,31 +151,7 @@ router.put('/sede/:dogId', async(req, res) => {
 
         return res.send({ msg: 'OK', dog });
     } catch (err) {
-        return res.status(400).send({ msg: 'Error water' });
-    }
-});
-
-router.put('/vacina/:dogId', async(req, res) => {
-    try {
-        const { doente } = await Dog.findOne({ user: req.userId, dogid: req.params.dogId });
-
-        if (!doente)
-            return res.send({ msg: 'O dog nao esta doente' });
-
-        const { vacina } = await Account.findOne({ user: req.userId });
-
-        if (vacina <= 0)
-            return res.status(400).send({ msg: 'Without vacina' });
-
-        const account = await Account.findOneAndUpdate({ user: req.userId }, { '$inc': { 'vacina': -1 } }, { new: true });
-        await account.save();
-
-        const dog = await Dog.findOneAndUpdate({ user: req.userId, dogid: req.params.dogId }, { '$set': { 'doente': false } }, { new: true });
-        await dog.save();
-
-        return res.send({ msg: 'OK', account, dog });
-    } catch (err) {
-        return res.status(400).send({ msg: 'Error vacina' });
+        return res.status(400).send({ msg: 'Erro no servidor ao hidratar o dog.' });
     }
 });
 
@@ -195,16 +171,16 @@ router.post('/action/:dogId', async(req, res) => {
 
         const recompensa = [100, 130, 160, 200, 300, 500];
 
-        const boneIncr = status == 'trocou' ? 0 : Math.ceil(recompensa[raridade] / (Math.pow(2, (5 - cla))));
+        const boneIncr = status == 'trocou' ? 0 : Math.ceil(recompensa[raridade] / (Math.pow(2, (4 - cla))));
 
-        const dogTypeTime = new Date(nowDate.getTime() + (1.5 * Math.pow(2, (cla - 1)) * gameSettings.timeMult));
+        const dogTypeTime = new Date(nowDate.getTime() + (1.5 * Math.pow(2, (cla)) * gameSettings.timeMult));
 
         switch (status) {
             case 'disponivel':
             case 'dormindo':
                 const { bone } = await Account.findOne({ user: req.userId });
 
-                const transporteTaxa = Math.ceil(recompensa[raridade] / (Math.pow(2, (5 - cla)))) * 0.05;
+                const transporteTaxa = Math.ceil(recompensa[raridade] / (Math.pow(2, (4 - cla)))) * 0.05;
                 if (bone < transporteTaxa)
                     return res.send({ msg: 'Sem Bone para taxa de transporte.' });
 
@@ -283,7 +259,7 @@ router.post('/action/:dogId', async(req, res) => {
                 return res.send({ msg: 'Status não identificado' });
         }
     } catch (err) {
-        return res.status(400).send({ msg: 'Erro do servidor ao gerenciar o pet.' });
+        return res.status(400).send({ msg: 'Erro no servidor ao gerenciar o pet.' });
     }
 });
 
