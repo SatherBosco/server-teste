@@ -40,6 +40,7 @@ router.post('/', async(req, res) => {
     const { _id, roomavaliabletime, hours } = req.body;
 
     try {
+        if (hours <= 0) return res.status(400).send({ msg: 'Erro: Número de diárias inválido.' });
         const rooms = await Room.find({ user: req.userId });
         if (rooms.length != 0) {
             for (let room of rooms) {
@@ -55,7 +56,7 @@ router.post('/', async(req, res) => {
 
         const { bone } = await Account.findOne({ user: req.userId });
 
-        const roomPrice = Math.trunc(100 * Math.trunc(hours));
+        const roomPrice = Math.trunc(60 * Math.trunc(hours));
         if (bone < roomPrice)
             return res.send({ msg: 'Sem Bone para alugar o quarto.' });
 

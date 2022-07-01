@@ -171,16 +171,16 @@ router.post('/action/:dogId', async(req, res) => {
 
         const recompensa = [100, 130, 160, 200, 300, 500];
 
-        const boneIncr = status == 'trocou' ? 0 : Math.ceil(recompensa[raridade] / (Math.pow(2, (4 - cla))));
+        const boneIncr = status == 'trocou' ? 0 : Math.ceil(recompensa[raridade] / (gameSettings.dogBoneIncrPow[cla]));
 
-        const dogTypeTime = new Date(nowDate.getTime() + (1.5 * Math.pow(2, (cla)) * gameSettings.timeMult));
+        const dogTypeTime = new Date(nowDate.getTime() + (gameSettings.dogActionTime[cla] * gameSettings.timeMult));
 
         switch (status) {
             case 'disponivel':
             case 'dormindo':
                 const { bone } = await Account.findOne({ user: req.userId });
 
-                const transporteTaxa = Math.ceil(recompensa[raridade] / (Math.pow(2, (4 - cla)))) * 0.05;
+                const transporteTaxa = Math.ceil(recompensa[raridade] / (gameSettings.dogBoneIncrPow[cla] * 0.05));
                 if (bone < transporteTaxa)
                     return res.send({ msg: 'Sem Bone para taxa de transporte.' });
 
