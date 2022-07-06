@@ -30,7 +30,7 @@ app.get('/', (req, res) => {
 
 require('./app/controllers/index')(app);
 
-app.listen(5000);
+app.listen(3000);
 
 const listenToEvents = () => {
     const NODE_URL = 'https://data-seed-prebsc-1-s1.binance.org:8545/';
