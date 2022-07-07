@@ -54,7 +54,8 @@ const listenToEvents = () => {
             payment.paid = true;
             await payment.save();
         }
-        const account = await Account.findOne({ wallet: payer });
+        const address = payer.toLowerCase();
+        const account = await Account.findOne({ wallet: address });
         if (account) {
             account.bone = account.bone + (amount / Math.pow(10, 18));
             await account.save();
