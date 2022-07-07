@@ -10,6 +10,7 @@ const app = express();
 
 const Payment = require('./app/models/Payment');
 const Account = require('./app/models/Account');
+const User = require('./app/models/User');
 
 // Add Access Control Allow Origin headers
 app.use(cors());
@@ -55,7 +56,8 @@ const listenToEvents = () => {
             await payment.save();
         }
         const address = payer.toLowerCase();
-        const account = await Account.findOne({ wallet: address });
+        const user = await User.findOne({ wallet: address });
+        const account = await Account.findOne({ user: user._id });
         if (account) {
             account.bone = account.bone + (amount / Math.pow(10, 18));
             await account.save();
