@@ -27,6 +27,7 @@ const UserSchema = new mongoose.Schema({
     passwordchange: {
         type: Date,
         default: Date.now,
+        select: false,
     },
     createdAt: {
         type: Date,

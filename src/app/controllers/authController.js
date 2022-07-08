@@ -18,9 +18,9 @@ function generateToken(params = {}) {
     });
 }
 
-function generateAuthToken(params = {}) {
+function generateRecoverToken(params = {}) {
     return jwt.sign(params, authConfig.secret, {
-        expiresIn: 3600,
+        expiresIn: 450,
     });
 }
 
@@ -39,7 +39,7 @@ router.post('/register', async(req, res) => {
 
         return res.send({
             msg: 'OK',
-            token: generateAuthToken({ wallet: wallet }),
+            token: generateRecoverToken({ wallet: wallet }),
         });
     } catch (err) {
         return res.status(400).send({ msg: 'Falha na criação da conta.' });
@@ -47,36 +47,33 @@ router.post('/register', async(req, res) => {
 });
 
 router.post('/registercontinuation', async(req, res) => {
-    const { dataSigned, hash } = req.body;
-    const { username, email, wallet } = req.body;
+    const { username, email, wallet, message, signature } = req.body;
 
     try {
         const web3 = new Web3();
-        const address = web3.eth.accounts.recover(dataSigned, hash);
+        const address = web3.eth.accounts.recover(message, signature);
 
-        if (!dataSigned)
-            return res.status(401).send({ error: 'Erro: Sem token.' });
+        const messageArray = message.split(" ");
+        const token = messageArray[24];
 
-        const parts = dataSigned.split(' ');
+        if (!token)
+            return res.status(401).send({ msg: 'Erro: Sem token.' });
 
-        if (!parts.length === 2)
-            return res.status(401).send({ error: 'Erro no Token.' });
-
-        const [scheme, token] = parts;
-
-        if (!/^Bearer$/i.test(scheme))
-            return res.status(401).send({ error: 'Token malformado.' });
-
-        var decodedwallet;
+        var decodedWallet;
+        var erro = false;
         jwt.verify(token, authConfig.secret, (err, decoded) => {
             if (err)
-                return res.status(401).send({ error: 'Token inválido.' });
+                erro = true;
 
-            decodedwallet = decoded.wallet;
+            if (!err)
+                decodedWallet = decoded.wallet;
         });
 
-        if (wallet !== address || decodedwallet !== wallet)
-            return res.status(400).send({ msg: 'Falha na assinatura.' });
+        if (erro)
+            return res.status(401).send({ msg: 'O token expirou.' });
+
+        if (address.toLowerCase() !== wallet.toLowerCase() || wallet.toLowerCase() !== decodedWallet.toLowerCase())
+            return res.status(400).send({ msg: 'Identidade não confirmada.' });
 
         if (await User.findOne({ username }))
             return res.status(400).send({ msg: 'Username indisponível.' });
@@ -107,10 +104,10 @@ router.post('/authenticate', async(req, res) => {
     const user = await User.findOne({ username }).select('+password');
 
     if (!user)
-        return res.status(400).send({ msg: 'Credenciais inválidas.' });
+        return res.status(400).send({ msg: 'Username e/ou senha inválido.' });
 
     if (!await bcrypt.compare(password, user.password))
-        return res.status(400).send({ msg: 'Credenciais inválidas.' });
+        return res.status(400).send({ msg: 'Username e/ou senha inválido.' });
 
     user.password = undefined;
 
@@ -121,7 +118,7 @@ router.post('/authenticate', async(req, res) => {
     });
 });
 
-router.post('/recover', async(req, res) => {
+router.post('/recoverpassword', async(req, res) => {
     const { wallet } = req.body;
 
     try {
@@ -132,65 +129,80 @@ router.post('/recover', async(req, res) => {
 
         return res.send({
             msg: 'OK',
-            token: generateAuthToken({ wallet: wallet }),
+            token: generateRecoverToken({ wallet: wallet, date: new Date() }),
         });
     } catch (err) {
-        return res.status(400).send({ msg: 'Falha na recuperação da conta.' });
+        return res.status(400).send({ msg: 'Falha na troca da senha.' });
     }
 });
 
 router.post('/recovercontinuation', async(req, res) => {
-    const { dataSigned, hash, wallet, newpassword } = req.body;
+    const { wallet, message, signature, username, newpassword } = req.body;
 
     try {
         const web3 = new Web3();
-        const address = web3.eth.accounts.recover(dataSigned, hash);
-        console.log(address);
+        const address = web3.eth.accounts.recover(message, signature);
 
-        if (!dataSigned)
-            return res.status(401).send({ error: 'Erro: Sem token.' });
+        const messageArray = message.split(" ");
+        const token = messageArray[10];
 
-        const parts = dataSigned.split(' ');
+        if (!token)
+            return res.status(401).send({ msg: 'Erro: Sem token.' });
 
-        if (!parts.length === 2)
-            return res.status(401).send({ error: 'Erro no Token.' });
-
-        const [scheme, token] = parts;
-
-        if (!/^Bearer$/i.test(scheme))
-            return res.status(401).send({ error: 'Token malformado.' });
-
-        var decodedwallet;
+        var decodedWallet;
+        var decodedDate;
+        var erro = false;
         jwt.verify(token, authConfig.secret, (err, decoded) => {
             if (err)
-                return res.status(401).send({ error: 'Token inválido.' });
+                erro = true;
 
-            decodedwallet = decoded.wallet;
+            if (!err) {
+                decodedWallet = decoded.wallet;
+                decodedDate = decoded.date
+            }
         });
 
-        if (wallet !== address || decodedwallet !== wallet)
-            return res.status(400).send({ msg: 'Falha na assinatura.' });
+        if (erro)
+            return res.status(401).send({ msg: 'O token expirou.' });
 
-        const user = await User.findOne({ wallet: wallet }).select('+password');
+        if (address.toLowerCase() !== wallet.toLowerCase() || wallet.toLowerCase() !== decodedWallet.toLowerCase())
+            return res.status(400).send({ msg: 'Identidade não confirmada.' });
+
+        const user = await User.findOne({ wallet: wallet }).select('+password +passwordchange');
+
+        if (user.username !== username)
+            return res.status(400).send({ msg: 'O username informado não corresponde a essa conta.' });
+
+        // if (new Date(decodedDate) < user.passwordchange)
+        //     return res.status(400).send({ msg: 'Token inválido.' });
+
         user.password = newpassword;
+        user.passwordchange = new Date();
         await user.save();
 
         user.password = undefined;
+        user.passwordchange = undefined;
 
         return res.send({
-            msg: 'OK',
-            user,
-            token: generateToken({ id: user.id }),
+            msg: 'OK'
         });
     } catch (err) {
-        return res.status(400).send({ msg: 'Falha na recuperação da conta.' });
+        return res.status(400).send({ msg: 'Falha na troca da senha.' });
     }
 });
 
 router.post('/recoverusername', async(req, res) => {
-    const { wallet } = req.body;
+    const { wallet, message, signature } = req.body;
 
     try {
+        const web3 = new Web3();
+        const address = web3.eth.accounts.recover(message, signature);
+
+        const addressFromMessage = message.split(" ");
+
+        if (address.toLowerCase() !== wallet.toLowerCase() || wallet.toLowerCase() !== addressFromMessage[8].toLowerCase())
+            return res.status(400).send({ msg: 'Identidade não confirmada.' });
+
         const user = await User.findOne({ wallet });
 
         if (!user)
@@ -198,54 +210,10 @@ router.post('/recoverusername', async(req, res) => {
 
         return res.send({
             msg: 'OK',
-            token: generateAuthToken({ wallet: wallet }),
+            user,
         });
     } catch (err) {
-        return res.status(400).send({ msg: 'Falha na recuperação da conta.' });
-    }
-});
-
-router.post('/recoverusernamecontinuation', async(req, res) => {
-    const { dataSigned, hash, wallet } = req.body;
-
-    try {
-        const web3 = new Web3();
-        const address = web3.eth.accounts.recover(dataSigned, hash);
-        console.log(address);
-
-        if (!dataSigned)
-            return res.status(401).send({ error: 'Erro: Sem token.' });
-
-        const parts = dataSigned.split(' ');
-
-        if (!parts.length === 2)
-            return res.status(401).send({ error: 'Erro no Token.' });
-
-        const [scheme, token] = parts;
-
-        if (!/^Bearer$/i.test(scheme))
-            return res.status(401).send({ error: 'Token malformado.' });
-
-        var decodedwallet;
-        jwt.verify(token, authConfig.secret, (err, decoded) => {
-            if (err)
-                return res.status(401).send({ error: 'Token inválido.' });
-
-            decodedwallet = decoded.wallet;
-        });
-
-        if (wallet !== address || decodedwallet !== wallet)
-            return res.status(400).send({ msg: 'Falha na assinatura.' });
-
-        const user = await User.findOne({ wallet: wallet });
-        user.password = undefined;
-
-        return res.send({
-            msg: 'OK',
-            user
-        });
-    } catch (err) {
-        return res.status(400).send({ msg: 'Falha na recuperação da conta.' });
+        return res.status(400).send({ msg: 'Falha na recuperação do username.' });
     }
 });
 
