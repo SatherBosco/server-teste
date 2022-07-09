@@ -1,20 +1,69 @@
 require("dotenv").config();
 
+const ethers = require('ethers');
+const SmartContractSaque = require('../contracts/SaquePayment.json');
+
 const express = require('express');
 const authMiddleware = require('../middlewares/auth');
 
 const Account = require('../models/Account');
 const Payment = require('../models/Payment');
+const Saque = require('../models/Saque');
 
 const router = express.Router();
 
 router.use(authMiddleware);
 
 router.post('/saque', async(req, res) => {
+    const saq = req.body;
     try {
-        return res.send({ msg: 'OK' });
+        const { saqueid } = await Saque.findOne({}).sort({ 'saqueid': -1 }).limit(1);
+        const account = await Account.findOne({ user: req.userId });
+        if (account.bone < saq.bone)
+            return res.status(400).send({ msg: 'Bone insuficiente.' });
+
+        const saqueDate = await Saque.findOne({ user: req.userId }).sort({ 'createdAt': -1 }).limit(1);
+
+        if ((new Date(saqueDate.createdAt).getTime() + 48 * 3600000) > new Date().getTime())
+            return res.status(400).send({ msg: 'Saque disponivel apenas 48 horas após o ultimo.' });
+
+        saq.saqueid = saqueid + 1;
+        saq.user = req.userId;
+
+        const NODE_URL = 'https://data-seed-prebsc-1-s1.binance.org:8545/';
+        const provider = new ethers.providers.JsonRpcProvider(NODE_URL);
+
+        const SmartContractSaqueObj = new ethers.Contract(
+            '0x381DB123d45a52b756Caa001DE20bd9770BaC70A',
+            SmartContractSaque,
+            provider
+        );
+
+        const _receipt = saq.wallet.toString();
+        const _amount = ethers.utils.parseEther(saq.bone);
+        const _nonce = parseInt(saq.saqueid);
+        const _date = parseInt(new Date().getTime() / 1000 + 172800);
+
+        const _contract = '0x381DB123d45a52b756Caa001DE20bd9770BaC70A';
+
+        let saqueTransaction = await SmartContractSaqueObj.getMessage(
+            _receipt,
+            _amount,
+            _nonce,
+            _date,
+            _contract
+        );
+
+        const PRIV_KEY = '0xd209f0a532283abb0a3b05396a38a3edf379400100b28717602950fe43a90a27';
+        const signer = new ethers.Wallet(PRIV_KEY)
+
+        const sigMessage = await signer.signMessage(ethers.utils.arrayify(saqueTransaction))
+
+        const saque = await Saque.create(saq);
+
+        return res.send({ msg: 'OK', saque, sigMessage, _date });
     } catch (err) {
-        return res.status(400).send({ msg: 'Erro ao verificar seus registros no resort.' });
+        return res.status(400).send({ msg: 'Erro do servidor.' });
     }
 });
 
@@ -33,5 +82,17 @@ router.post('/deposito', async(req, res) => {
         return res.status(400).send({ msg: 'Erro do servidor.' });
     }
 });
+
+// router.post('/teste', async(req, res) => {
+//     var obj = {
+//         'saqueid': 0,
+//         'itemid': "",
+//         'paid': false,
+//         'user': req.userId,
+//         'createdAt': 0
+//     };
+//     const newDog = await Saque.create(obj);
+//     return res.send({ msg: 'OK' });
+// });
 
 module.exports = app => app.use('/payment', router);
