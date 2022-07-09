@@ -16,6 +16,12 @@ const SaqueSchema = new mongoose.Schema({
         ref: 'User',
         required: true,
     },
+    signature: {
+        type: String,
+    },
+    date: {
+        type: Number,
+    },
     createdAt: {
         type: Date,
         default: Date.now,

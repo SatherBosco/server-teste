@@ -17,16 +17,29 @@ router.use(authMiddleware);
 router.post('/saque', async(req, res) => {
     const saq = req.body;
     try {
+        let saque;
+        let sigMessage;
+        let _date;
         const { saqueid } = await Saque.findOne({}).sort({ 'saqueid': -1 }).limit(1);
         const account = await Account.findOne({ user: req.userId });
-        if (account.bone < saq.bone)
-            return res.status(400).send({ msg: 'Bone insuficiente.' });
+        if (saq.bone < 400)
+            return res.status(400).send({ msg: 'Saque mínimo de 400 Bone.' });
+        if (account.bone - saq.bone < 100)
+            return res.status(400).send({ msg: 'É necessário deixar no mínimo 100 Bone na conta.' });
 
         const saqueDate = await Saque.findOne({ user: req.userId }).sort({ 'createdAt': -1 }).limit(1);
 
         if (saqueDate !== null) {
-            if ((new Date(saqueDate.createdAt).getTime() + 48 * 3600000) > new Date().getTime())
-                return res.status(400).send({ msg: 'Saque disponivel apenas 48 horas após o ultimo.' });
+            if ((new Date(saqueDate.createdAt).getTime() + 48 * 3600000) > new Date().getTime()) {
+                if (saqueDate.paid)
+                    return res.status(400).send({ msg: 'Saque disponivel apenas 48 horas após o ultimo.' });
+                else {
+                    saque = saqueDate;
+                    sigMessage = saqueDate.signature;
+                    _date = saqueDate.date;
+                    return res.send({ msg: 'OK', saque, sigMessage, _date });
+                }
+            }
         }
 
         saq.saqueid = saqueid + 1;
@@ -44,7 +57,7 @@ router.post('/saque', async(req, res) => {
         const _receipt = saq.wallet.toString();
         const _amount = ethers.utils.parseEther(saq.bone);
         const _nonce = parseInt(saq.saqueid);
-        const _date = parseInt(new Date().getTime() / 1000 + 172800);
+        _date = parseInt(new Date().getTime() / 1000 + 172800);
 
         const _contract = '0x381DB123d45a52b756Caa001DE20bd9770BaC70A';
 
@@ -57,11 +70,13 @@ router.post('/saque', async(req, res) => {
         );
 
         const PRIV_KEY = '0xd209f0a532283abb0a3b05396a38a3edf379400100b28717602950fe43a90a27';
-        const signer = new ethers.Wallet(PRIV_KEY)
+        const signer = new ethers.Wallet(PRIV_KEY);
 
-        const sigMessage = await signer.signMessage(ethers.utils.arrayify(saqueTransaction))
+        sigMessage = await signer.signMessage(ethers.utils.arrayify(saqueTransaction));
 
-        const saque = await Saque.create(saq);
+        saq.signature = sigMessage;
+        saq.date = _date;
+        saque = await Saque.create(saq);
 
         return res.send({ msg: 'OK', saque, sigMessage, _date });
     } catch (err) {
@@ -89,8 +104,10 @@ router.post('/deposito', async(req, res) => {
 //     var obj = {
 //         'saqueid': 0,
 //         'itemid': "",
-//         'paid': false,
+//         'paid': true,
 //         'user': req.userId,
+//         'signature': '',
+//         'date': 0,
 //         'createdAt': 0
 //     };
 //     const newDog = await Saque.create(obj);
