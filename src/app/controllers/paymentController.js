@@ -24,8 +24,10 @@ router.post('/saque', async(req, res) => {
 
         const saqueDate = await Saque.findOne({ user: req.userId }).sort({ 'createdAt': -1 }).limit(1);
 
-        if ((new Date(saqueDate.createdAt).getTime() + 48 * 3600000) > new Date().getTime())
-            return res.status(400).send({ msg: 'Saque disponivel apenas 48 horas após o ultimo.' });
+        if (saqueDate !== null) {
+            if ((new Date(saqueDate.createdAt).getTime() + 48 * 3600000) > new Date().getTime())
+                return res.status(400).send({ msg: 'Saque disponivel apenas 48 horas após o ultimo.' });
+        }
 
         saq.saqueid = saqueid + 1;
         saq.user = req.userId;
