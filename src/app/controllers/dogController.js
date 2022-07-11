@@ -67,7 +67,8 @@ async function getPenalidade(fomeSede, penalidade, penalidadeDate, cla) {
 
 router.get('/', async(req, res) => {
     try {
-        const NODE_URL = 'https://speedy-nodes-nyc.moralis.io/b22571774cee89066f4cf22d/bsc/mainnet';
+        // const NODE_URL = 'https://speedy-nodes-nyc.moralis.io/b22571774cee89066f4cf22d/bsc/mainnet';
+        const NODE_URL = 'https://bsc-dataseed.binance.org/';
         const provider = new Web3.providers.HttpProvider(NODE_URL);
         const web3 = new Web3(provider);
 
@@ -77,6 +78,15 @@ router.get('/', async(req, res) => {
         );
 
         const { wallet } = await User.findOne({ _id: req.userId });
+
+        // const provider = new ethers.providers.JsonRpcProvider(NODE_URL);
+        // const SmartContractNFTObj = new ethers.Contract(
+        //     '0x90487b4Be33FaF888f4D9145172c11B70B5fF821',
+        //     SmartContractNFT,
+        //     provider
+        // );
+        // var dogsFromBSC = await SmartContractNFTObj.getOwnerDogsId(wallet);
+        // await dogsFromBSC.wait();
 
         var dogsFromBSC;
         await SmartContractNFTObj.methods.getOwnerDogsId(wallet).call(function(error, result) {
