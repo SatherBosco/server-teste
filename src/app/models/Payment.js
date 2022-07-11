@@ -3,6 +3,7 @@ const mongoose = require('../../database');
 const PaymentSchema = new mongoose.Schema({
     paymentid: {
         type: Number,
+        unique: true,
     },
     itemid: {
         type: String,

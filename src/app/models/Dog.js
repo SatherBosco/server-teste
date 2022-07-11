@@ -35,6 +35,14 @@ const DogSchema = new mongoose.Schema({
         type: Date,
         required: true,
     },
+    penalidade: {
+        type: Number,
+        default: 0,
+    },
+    penalidadedate: {
+        type: Date,
+        default: 0,
+    },
     status: {
         type: String,
         required: true,

@@ -3,6 +3,7 @@ const mongoose = require('../../database');
 const SaqueSchema = new mongoose.Schema({
     saqueid: {
         type: Number,
+        unique: true,
     },
     itemid: {
         type: String,
