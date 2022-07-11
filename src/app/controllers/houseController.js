@@ -15,7 +15,7 @@ router.use(authMiddleware);
 
 router.get('/', async(req, res) => {
     try {
-        const NODE_URL = 'https://speedy-nodes-nyc.moralis.io/b22571774cee89066f4cf22d/bsc/mainnet';
+        const NODE_URL = 'https://bsc-dataseed.binance.org/';
         const provider = new Web3.providers.HttpProvider(NODE_URL);
         const web3 = new Web3(provider);
 
