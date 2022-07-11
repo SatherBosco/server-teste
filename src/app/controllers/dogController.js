@@ -281,7 +281,7 @@ router.post('/action/:dogId', async(req, res) => {
             case 'dormindo':
                 const { bone } = await Account.findOne({ user: req.userId });
 
-                const transporteTaxa = Math.ceil(gameSettings.recompensa[dog.raridade] / (gameSettings.dogBoneIncrPow[dog.cla] * 0.05));
+                const transporteTaxa = Math.ceil((gameSettings.recompensa[dog.raridade] / gameSettings.dogBoneIncrPow[dog.cla]) * 0.05);
                 if (bone < transporteTaxa)
                     return res.send({ msg: 'Sem Bone para taxa de transporte.' });
 
