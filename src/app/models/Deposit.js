@@ -1,12 +1,9 @@
 const mongoose = require('../../database');
 
-const SaqueSchema = new mongoose.Schema({
-    saqueid: {
+const DepositSchema = new mongoose.Schema({
+    transactionId: {
         type: Number,
         unique: true,
-    },
-    itemid: {
-        type: String,
     },
     paid: {
         type: Boolean,
@@ -17,18 +14,12 @@ const SaqueSchema = new mongoose.Schema({
         ref: 'User',
         required: true,
     },
-    signature: {
-        type: String,
-    },
-    date: {
-        type: Number,
-    },
     createdAt: {
         type: Date,
         default: Date.now,
     },
 });
 
-const Saque = mongoose.model('Saque', SaqueSchema);
+const Deposit = mongoose.model('Deposit', DepositSchema);
 
-module.exports = Saque;
+module.exports = Deposit;

@@ -1,70 +1,74 @@
 require("dotenv").config();
 
 const ethers = require('ethers');
-const SmartContractSaque = require('../contracts/SaquePayment.json');
+const SmartContractWithdraw = require('../contracts/DDCWithdraw.json');
 
 const express = require('express');
 const authMiddleware = require('../middlewares/auth');
 
+const User = require('../models/User');
 const Account = require('../models/Account');
-const Payment = require('../models/Payment');
-const Saque = require('../models/Saque');
+const Deposit = require('../models/Deposit');
+const Withdraw = require('../models/Withdraw');
 
 const router = express.Router();
 
 router.use(authMiddleware);
 
-router.post('/saque', async(req, res) => {
-    const saq = req.body;
+router.post('/withdraw', async(req, res) => {
+    const withdrawReq = req.body;
     try {
-        let saque;
-        let sigMessage;
-        let _date;
-        const { saqueid } = await Saque.findOne({}).sort({ 'saqueid': -1 }).limit(1);
-        const account = await Account.findOne({ user: req.userId });
-        if (saq.bone < 400)
-            return res.status(400).send({ msg: 'Saque mínimo de 400 Bone.' });
-        if (account.bone - saq.bone < 100)
-            return res.status(400).send({ msg: 'É necessário deixar no mínimo 100 Bone na conta.' });
+        let withdraw;
 
-        const saqueDate = await Saque.findOne({ user: req.userId }).sort({ 'createdAt': -1 }).limit(1);
+        const withdrawDate = await Withdraw.findOne({ user: req.userId }).sort({ 'createdAt': -1 }).limit(1);
 
-        if (saqueDate !== null) {
-            if ((new Date(saqueDate.createdAt).getTime() + 48 * 3600000) > new Date().getTime()) {
-                if (saqueDate.paid)
-                    return res.status(400).send({ msg: 'Saque disponivel apenas 48 horas após o ultimo.' });
-                else {
-                    saque = saqueDate;
-                    sigMessage = saqueDate.signature;
-                    _date = saqueDate.date;
-                    return res.send({ msg: 'OK', saque, sigMessage, _date });
+        if (withdrawDate !== null) {
+            if (!withdrawDate.paid) {
+                if ((new Date(withdrawDate.createdAt).getTime() + 1200000) > new Date().getTime()) { // ADICIONAR VARIAVEL PARA A DATA
+                    if ((new Date(withdrawDate.createdAt).getTime() + 600000) > new Date().getTime()) { // ADICIONAR VARIAVEL PARA A DATA
+                        withdraw = withdrawDate;
+                        return res.send({ msg: 'OK', withdraw });
+                    } else {
+                        return res.status(400).send({ msg: 'Caso não tenha completado o último saque espere pelo menos 20 minutos para solicitar outro.' });
+                    }
+                }
+            } else {
+                if ((new Date(withdrawDate.createdAt).getTime() + 48 * 3600000) > new Date().getTime()) { // ADICIONAR VARIAVEL PARA A DATA
+                    return res.status(400).send({ msg: 'Saque disponivel apenas 48 horas após o último.' });
                 }
             }
         }
 
-        saq.saqueid = saqueid + 1;
-        saq.user = req.userId;
+        const account = await Account.findOne({ user: req.userId });
+        if (withdrawReq.bone < 400)
+            return res.status(400).send({ msg: 'Saque mínimo de 400 Bone.' });
+        if (account.bone - withdrawReq.bone < 100)
+            return res.status(400).send({ msg: 'É necessário deixar no mínimo 100 Bone na conta.' });
+
+        const { transactionId } = await Withdraw.findOne({}).sort({ 'transactionId': -1 }).limit(1);
+        const user = await User.findOne({ _id: req.userId });
+
+        const newTransactionId = transactionId + 1;
 
         const NODE_URL = 'https://data-seed-prebsc-1-s1.binance.org:8545/';
         const provider = new ethers.providers.JsonRpcProvider(NODE_URL);
 
-        const SmartContractSaqueObj = new ethers.Contract(
-            '0x381DB123d45a52b756Caa001DE20bd9770BaC70A',
-            SmartContractSaque,
+        const _contract = '0x0A2283BDfB444e2fd0036347765Ea90ec006bB3d';
+        const SmartContractWithdrawObj = new ethers.Contract(
+            _contract,
+            SmartContractWithdraw,
             provider
         );
 
-        const _receipt = saq.wallet.toString();
-        const _amount = ethers.utils.parseEther(saq.bone);
-        const _nonce = parseInt(saq.saqueid);
-        _date = parseInt(new Date().getTime() / 1000 + 172800);
+        const _recipient = user.wallet.toString();
+        const _amount = ethers.utils.parseEther(withdrawReq.bone);
+        const _transactionId = parseInt(newTransactionId);
+        _date = parseInt(new Date().getTime() / 1000);
 
-        const _contract = '0x381DB123d45a52b756Caa001DE20bd9770BaC70A';
-
-        let saqueTransaction = await SmartContractSaqueObj.getMessage(
-            _receipt,
+        let withdrawTransaction = await SmartContractWithdrawObj.getMessage(
+            _recipient,
             _amount,
-            _nonce,
+            _transactionId,
             _date,
             _contract
         );
@@ -72,46 +76,43 @@ router.post('/saque', async(req, res) => {
         const PRIV_KEY = '0xd209f0a532283abb0a3b05396a38a3edf379400100b28717602950fe43a90a27';
         const signer = new ethers.Wallet(PRIV_KEY);
 
-        sigMessage = await signer.signMessage(ethers.utils.arrayify(saqueTransaction));
+        sigMessage = await signer.signMessage(ethers.utils.arrayify(withdrawTransaction));
 
-        saq.signature = sigMessage;
-        saq.date = _date;
-        saque = await Saque.create(saq);
+        let withdrawObj = {
+            'transactionId': newTransactionId,
+            'paid': false,
+            'user': req.userId,
+            'signature': sigMessage,
+            'amount': _amount.toString(),
+            'date': _date
+        }
 
-        return res.send({ msg: 'OK', saque, sigMessage, _date });
+        withdraw = await Withdraw.create(withdrawObj);
+
+        return res.send({ msg: 'OK', withdraw });
     } catch (err) {
         return res.status(400).send({ msg: 'Erro do servidor.' });
     }
 });
 
-router.post('/deposito', async(req, res) => {
-    const pay = req.body;
+router.post('/deposit', async(req, res) => {
     try {
-        const { paymentid } = await Payment.findOne({}).sort({ 'paymentid': -1 }).limit(1);
-        pay.paymentid = paymentid + 1;
-        pay.user = req.userId;
+        const { transactionId } = await Deposit.findOne({}).sort({ 'transactionId': -1 }).limit(1);
 
-        const payment = await Payment.create(pay);
+        const newTransactionId = transactionId + 1;
 
+        let depositObj = {
+            'transactionId': newTransactionId,
+            'paid': false,
+            'user': req.userId,
+        }
 
-        return res.send({ msg: 'OK', payment });
+        const deposit = await Deposit.create(depositObj);
+
+        return res.send({ msg: 'OK', deposit });
     } catch (err) {
         return res.status(400).send({ msg: 'Erro do servidor.' });
     }
 });
-
-// router.post('/teste', async(req, res) => {
-//     var obj = {
-//         'saqueid': 0,
-//         'itemid': "",
-//         'paid': true,
-//         'user': req.userId,
-//         'signature': '',
-//         'date': 0,
-//         'createdAt': 0
-//     };
-//     const newDog = await Saque.create(obj);
-//     return res.send({ msg: 'OK' });
-// });
 
 module.exports = app => app.use('/payment', router);

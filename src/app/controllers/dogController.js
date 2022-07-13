@@ -3,6 +3,9 @@ require("dotenv").config();
 const Web3 = require('web3');
 const SmartContractNFT = require('../contracts/DDCDOG.json');
 
+const ethers = require('ethers');
+const SmartContractBuyDog = require('../contracts/BuyDog.json');
+
 const express = require('express');
 const authMiddleware = require('../middlewares/auth');
 
@@ -14,6 +17,7 @@ const Dog = require('../models/Dog');
 const House = require('../models/House');
 const Room = require('../models/Room')
 const Bed = require('../models/Bed');
+const BuyDog = require('../models/BuyDog');
 
 const router = express.Router();
 
@@ -363,6 +367,87 @@ router.post('/action/:dogId', async(req, res) => {
         }
     } catch (err) {
         return res.status(400).send({ msg: 'Erro no servidor ao gerenciar o pet.' });
+    }
+});
+
+router.post('/buy', async(req, res) => {
+    const buyDogReq = req.body;
+    try {
+        let buyDog;
+
+        const buyDogDate = await BuyDog.findOne({ user: req.userId }).sort({ 'createdAt': -1 }).limit(1);
+
+        if (buyDogDate !== null) {
+            if (!buyDogDate.paid) {
+                if ((new Date(buyDogDate.createdAt).getTime() + 1200000) > new Date().getTime()) { // ADICIONAR VARIAVEL PARA A DATA
+                    if ((new Date(buyDogDate.createdAt).getTime() + 600000) > new Date().getTime()) { // ADICIONAR VARIAVEL PARA A DATA
+                        buyDog = buyDogDate;
+                        return res.send({ msg: 'OK', buyDog });
+                    } else {
+                        return res.status(400).send({ msg: 'Caso não tenha completado a última compra espere pelo menos 20 minutos para solicitar outra.' });
+                    }
+                }
+            }
+        }
+
+        const account = await Account.findOne({ user: req.userId });
+        if (buyDogReq.amount * gameSettings.dogPrice > account.bone)
+            return res.status(400).send({ msg: 'Você não possui Bone o suficiente.' });
+
+        const { transactionId } = await BuyDog.findOne({}).sort({ 'transactionId': -1 }).limit(1);
+        const user = await User.findOne({ _id: req.userId });
+
+        const newTransactionId = transactionId + 1;
+
+        const NODE_URL = 'https://data-seed-prebsc-1-s1.binance.org:8545/';
+        const provider = new ethers.providers.JsonRpcProvider(NODE_URL);
+
+        const _contract = '0x4936669c3b456d557a5A7140f04dA27C76bEee51';
+        const SmartContractBuyDogObj = new ethers.Contract(
+            _contract,
+            SmartContractBuyDog,
+            provider
+        );
+
+        const _recipient = user.wallet.toString();
+        const _amount = buyDogReq.amount;
+
+        const _transactionId = parseInt(newTransactionId);
+        _date = parseInt(new Date().getTime() / 1000);
+        let buyDogTransaction = await SmartContractBuyDogObj.getMessage(
+            _recipient,
+            _amount,
+            _transactionId,
+            _date,
+            _contract
+        );
+
+        const PRIV_KEY = '0xd209f0a532283abb0a3b05396a38a3edf379400100b28717602950fe43a90a27';
+        const signer = new ethers.Wallet(PRIV_KEY);
+
+        sigMessage = await signer.signMessage(ethers.utils.arrayify(buyDogTransaction));
+
+        let buyDogObj = {
+            'transactionId': newTransactionId,
+            'paid': false,
+            'user': req.userId,
+            'signature': sigMessage,
+            'amount': _amount.toString(),
+            'date': _date
+        }
+
+        buyDog = await BuyDog.create(buyDogObj);
+
+        console.log(_recipient,
+            _amount,
+            _transactionId,
+            _date,
+            _contract, sigMessage, buyDogTransaction
+        );
+
+        return res.send({ msg: 'OK', buyDog });
+    } catch (err) {
+        return res.status(400).send({ msg: 'Erro do servidor.' });
     }
 });
 

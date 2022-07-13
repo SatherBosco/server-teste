@@ -1,12 +1,9 @@
 const mongoose = require('../../database');
 
-const PaymentSchema = new mongoose.Schema({
-    paymentid: {
+const BuyHouseSchema = new mongoose.Schema({
+    transactionId: {
         type: Number,
         unique: true,
-    },
-    itemid: {
-        type: String,
     },
     paid: {
         type: Boolean,
@@ -17,12 +14,21 @@ const PaymentSchema = new mongoose.Schema({
         ref: 'User',
         required: true,
     },
+    signature: {
+        type: String,
+    },
+    amount: {
+        type: String,
+    },
+    date: {
+        type: Number,
+    },
     createdAt: {
         type: Date,
         default: Date.now,
     },
 });
 
-const Payment = mongoose.model('Payment', PaymentSchema);
+const BuyHouse = mongoose.model('BuyHouse', BuyHouseSchema);
 
-module.exports = Payment;
+module.exports = BuyHouse;
